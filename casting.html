@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>C&M Ent. Director's Database</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --sidebar-color: #1e1e1e;
+            --text-color: #e0e0e0;
+            --accent-color: #c5a059;
+            --truth-color: #ff3333;
+            --paper-color: #f4f4f4;
+            --paper-text: #111;
+            --folder-color: #e8cd79;
+        }
+
+        body.truth-mode { --accent-color: var(--truth-color); }
+        body.truth-mode .document-paper::before { content: "TRUTH REVEALED"; color: rgba(255, 0, 0, 0.05); }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+
+        body {
+            margin: 0;
+            font-family: 'Pretendard', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            transition: background 0.5s;
+        }
+
+        /* --- 사이드바 --- */
+        .sidebar {
+            width: 260px;
+            background-color: var(--sidebar-color);
+            border-right: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            z-index: 50;
+            box-shadow: 4px 0 15px rgba(0,0,0,0.3);
+            flex-shrink: 0;
+        }
+
+        .logo {
+            padding: 30px 20px;
+            font-size: 20px;
+            font-weight: 900;
+            color: var(--accent-color);
+            letter-spacing: 1px;
+            border-bottom: 1px solid #333;
+            text-align: center;
+        }
+
+        .nav-list { padding: 10px; overflow-y: auto; flex: 1; }
+        .nav-item { padding: 15px; margin-bottom: 5px; cursor: pointer; border-radius: 4px; transition: all 0.2s; color: #888; font-weight: 500; display: flex; align-items: center; }
+        .nav-item:hover { background-color: #2a2a2a; color: #fff; }
+        .nav-item.active { background-color: var(--accent-color); color: #000; font-weight: bold; }
+
+        /* --- 메인 컨텐츠 --- */
+        .main-content {
+            flex: 1;
+            background-color: #000;
+            padding: 40px;
+            overflow-y: auto;
+            display: flex;
+            justify-content: center;
+            background-image: radial-gradient(#222 1px, transparent 1px);
+            background-size: 20px 20px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .document-paper {
+            width: 100%;
+            max-width: 1000px;
+            background-color: var(--paper-color);
+            color: var(--paper-text);
+            padding: 50px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.7);
+            min-height: 800px;
+            position: relative;
+            border-radius: 2px;
+        }
+
+        .document-paper::before {
+            content: "CONFIDENTIAL";
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 8vw;
+            color: rgba(0,0,0,0.03);
+            font-weight: 900;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        .header-line {
+            border-bottom: 2px solid #000;
+            margin-bottom: 30px;
+            padding-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .doc-title { font-size: 32px; font-weight: 900; letter-spacing: -1px; cursor: pointer; }
+        .header-right { display: flex; align-items: center; gap: 15px; }
+        .doc-date { font-family: 'Courier New', monospace; font-weight: bold; font-size: 16px; }
+        .status-btn { font-size: 20px; cursor: pointer; background: none; border: none; padding: 5px; }
+
+        /* 프로필 뷰 */
+        #profile-view { display: block; animation: fadeIn 0.5s; }
+        .profile-container { display: flex; gap: 30px; margin-bottom: 50px; }
+        .main-photo-box { width: 180px; height: 240px; background: #e0e0e0; border: 1px solid #999; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0; box-shadow: 3px 3px 10px rgba(0,0,0,0.1); }
+        .main-photo-box img { width: 100%; height: 100%; object-fit: cover; }
+        .info-grid { flex: 1; display: grid; grid-template-columns: 80px 1fr; row-gap: 15px; align-content: start; font-size: 15px; }
+        .label { font-weight: bold; color: #555; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+        .value { padding-left: 10px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+        body.truth-mode .value { color: #d00; font-weight: bold; font-family: 'Courier New', monospace; }
+
+        .secret-folder-container {
+            margin-top: 80px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer;
+            padding: 20px; border: 2px dashed #ccc; border-radius: 10px; transition: all 0.3s;
+        }
+        .secret-folder-container:hover { background-color: rgba(0,0,0,0.05); border-color: #999; transform: scale(1.02); }
+        .folder-icon { font-size: 80px; color: var(--folder-color); margin-bottom: 10px; }
+        .folder-label { font-size: 18px; font-weight: 900; color: #d00; letter-spacing: 2px; text-transform: uppercase; }
+        .folder-sub { font-size: 12px; color: #666; margin-top: 5px; }
+
+        /* 갤러리 뷰 */
+        #gallery-view { display: none; animation: slideUp 0.5s; }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .gallery-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #000; }
+        .back-btn { background: #333; color: white; border: none; padding: 8px 15px; font-weight: bold; cursor: pointer; border-radius: 4px; }
+        .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        
+        .photo-card { background: #fff; border: 1px solid #ccc; padding: 5px; position: relative; }
+        
+        /* 히든 텍스트가 있는 이미지 강조 (붉은 테두리) */
+        .photo-card.has-secret {
+            border: 3px solid #ff0000 !important;
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.4);
+            animation: secretPulse 2s infinite;
+        }
+        @keyframes secretPulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.4); }
+            70% { box-shadow: 0 0 10px 5px rgba(255, 0, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+        }
+
+        .secret-badge {
+            position: absolute; top: -10px; right: -5px;
+            background: red; color: white; font-size: 10px; font-weight: bold;
+            padding: 3px 6px; border-radius: 4px; z-index: 10;
+            display: none; box-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+        }
+        .photo-card.has-secret .secret-badge { display: block; }
+
+        .img-wrapper { width: 100%; aspect-ratio: 1216 / 832; background: #222; overflow: hidden; position: relative; }
+        .img-wrapper img { width: 100%; height: 100%; object-fit: cover; display: none; animation: fadeIn 0.5s; }
+        .cover-overlay { width: 100%; height: 100%; position: absolute; top: 0; left: 0; background: #333; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; z-index: 2; }
+        .cover-text { color: #fff; font-size: 12px; font-weight: bold; }
+        .file-num { color: var(--accent-color); font-size: 14px; margin-top: 5px; font-family: monospace; }
+        .card-info { padding: 8px 5px 2px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+        .tag-badge { background: #000; color: #fff; padding: 3px 8px; border-radius: 2px; font-size: 10px; font-weight: bold; }
+
+        /* 모달 */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.95); flex-direction: column; align-items: center; justify-content: center; }
+        .modal-content { max-width: 95%; max-height: 80vh; border: 1px solid #555; box-shadow: 0 0 30px rgba(0,0,0,0.8); object-fit: contain; }
+        .modal-caption { margin-top: 20px; color: #aaa; font-size: 16px; font-weight: bold; text-align: center; }
+        .close-btn { position: absolute; top: 20px; right: 20px; color: #fff; font-size: 40px; cursor: pointer; padding: 10px; z-index: 1001; }
+
+        /* 팝업 */
+        .egg-popup { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #1a1a1a; border: 2px solid var(--accent-color); padding: 20px; z-index: 2000; width: 300px; color: #eee; box-shadow: 0 0 20px rgba(0,0,0,0.8); border-radius: 8px; }
+        .egg-header { font-weight: bold; color: var(--accent-color); margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .egg-item { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
+        .egg-status { font-weight: bold; color: #555; }
+        .egg-status.unlocked { color: #4CAF50; }
+        .egg-close { margin-top: 15px; width: 100%; padding: 10px; background: #333; color: white; border: none; cursor: pointer; }
+
+        /* 알림 */
+        #notification-area { position: fixed; z-index: 5000; display: flex; flex-direction: column; gap: 10px; bottom: 20px; right: 20px; width: 300px; pointer-events: none; }
+        .msg-toast { background: rgba(255, 235, 59, 0.95); color: #000; padding: 15px; border-radius: 5px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); font-size: 13px; animation: slideInRight 0.5s ease-out; pointer-events: auto; border-left: 5px solid #444; opacity: 0.95; }
+        .msg-sender { font-weight: bold; font-size: 14px; margin-bottom: 5px; color: #333; display: flex; justify-content: space-between; }
+        .msg-time { font-size: 11px; color: #666; font-weight: normal; }
+        .msg-body { line-height: 1.4; }
+
+        @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideInDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; height: auto; flex-direction: row; overflow-x: auto; background: #111; border-bottom: 2px solid var(--accent-color); border-right: none; position: sticky; top: 0; }
+            .logo { display: none; }
+            .nav-list { display: flex; padding: 0; width: max-content; }
+            .nav-item { margin: 0; padding: 15px 20px; border-radius: 0; background: transparent; }
+            .nav-item.active { border-bottom: 3px solid var(--accent-color); background: #222; }
+            .main-content { padding: 0; }
+            .document-paper { padding: 20px; min-height: 100vh; border-radius: 0; }
+            .doc-title { font-size: 24px; }
+            .profile-container { flex-direction: column; align-items: center; gap: 20px; margin-bottom: 30px; }
+            .gallery-grid { grid-template-columns: 1fr; gap: 15px; }
+            .folder-icon { font-size: 60px; }
+            .folder-label { font-size: 16px; }
+            #notification-area { bottom: auto; right: auto; top: 60px; left: 10px; right: 10px; width: auto; }
+            .msg-toast { animation: slideInDown 0.5s ease-out; border-left: none; border-top: 5px solid #444; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="sidebar">
+        <div class="logo">DIRECTOR'S CUT</div>
+        <div class="nav-list">
+            <div class="nav-item active" onclick="changeChar(0)"><span>01. 최서연</span></div>
+            <div class="nav-item" onclick="changeChar(1)"><span>02. 김하늘</span></div>
+            <div class="nav-item" onclick="changeChar(2)"><span>03. 윤소라</span></div>
+            <div class="nav-item" onclick="changeChar(3)"><span>04. 한예은</span></div>
+        </div>
+    </nav>
+
+    <div id="notification-area"></div>
+
+    <main class="main-content">
+        <div class="document-paper">
+            <div class="header-line">
+                <div class="doc-title" onclick="triggerTruth()">AUDITION REPORT</div>
+                <div class="header-right">
+                    <div class="doc-date" id="header-date">DATE: </div>
+                    <button class="status-btn" onclick="toggleEggPopup()">🔒</button>
+                </div>
+            </div>
+
+            <div id="profile-view">
+                <div class="profile-container" id="profile-container"></div>
+                <div class="secret-folder-container" onclick="openGallery()">
+                    <div class="folder-icon">📁</div>
+                    <div class="folder-label">RESTRICTED ARCHIVE</div>
+                    <div class="folder-sub">Click to access attached files</div>
+                </div>
+            </div>
+
+            <div id="gallery-view">
+                <div class="gallery-header">
+                    <span style="font-weight:bold; font-size:18px;">EVIDENCE LIST</span>
+                    <button class="back-btn" onclick="closeGallery()">↩ BACK</button>
+                </div>
+                <div class="gallery-grid" id="gallery-grid"></div>
+            </div>
+        </div>
+    </main>
+
+    <div id="egg-popup" class="egg-popup">
+        <div class="egg-header">HIDDEN FEATURES</div>
+        <div class="egg-item">
+            <span>👁️ TRUTH MODE (Title 5 Taps)</span>
+            <span class="egg-status" id="st-truth">LOCKED</span>
+        </div>
+        <div class="egg-item">
+            <span>🗣️ HIDDEN TEXT (Long Press)</span>
+            <span class="egg-status" id="st-text">0/0</span>
+        </div>
+        <button class="egg-close" onclick="toggleEggPopup()">CLOSE</button>
+    </div>
+
+    <div id="modal" class="modal">
+        <span class="close-btn" onclick="closeModal()">&times;</span>
+        <img id="modal-img" class="modal-content">
+        <div id="modal-caption" class="modal-caption"></div>
+    </div>
+
+    <script>
+        const IMAGE_FOLDER = "./"; 
+        const IMAGE_EXT = ".png";
+
+        let state = {
+            truthUnlocked: false,
+            clickCount: 0,
+            foundTexts: []
+        };
+
+        const imageTags = [
+            {t:"무표정", c:"FACE"}, {t:"미소", c:"FACE"}, {t:"웃음", c:"FACE"}, {t:"유혹", c:"FACE"}, {t:"애교", c:"FACE"},
+            {t:"수줍", c:"FACE"}, {t:"부끄", c:"FACE"}, {t:"눈물", c:"FACE"}, {t:"오열", c:"FACE"}, {t:"시무룩", c:"FACE"},
+            {t:"화남", c:"FACE"}, {t:"삐짐", c:"FACE"}, {t:"실망", c:"FACE"}, {t:"의심", c:"FACE"}, {t:"의문", c:"FACE"},
+            {t:"경멸", c:"FACE"}, {t:"당황", c:"FACE"}, {t:"놀람", c:"FACE"}, {t:"긴장", c:"FACE"}, {t:"졸림", c:"FACE"},
+            {t:"식사", c:"SIT"}, {t:"쿠키먹기", c:"SIT"}, {t:"아이스크림", c:"SIT"}, {t:"수영", c:"SIT"}, {t:"놀이공원", c:"SIT"},
+            {t:"서점", c:"SIT"}, {t:"공원", c:"SIT"}, {t:"드라이브", c:"SIT"}, {t:"바다", c:"SIT"}, {t:"온천", c:"SIT"},
+            {t:"아쿠아리움", c:"SIT"}, {t:"옷입고 키스", c:"SIT"}, {t:"옷벗고 키스", c:"SIT"}, {t:"목욕", c:"SIT"}, {t:"겨드랑이 벌리기", c:"SIT"},
+            {t:"가슴 만져짐", c:"SIT"}, {t:"자위", c:"SIT"},
+            {t:"정상위", c:"SEX"}, {t:"후배위", c:"SEX"}, {t:"기승위", c:"SEX"}, 
+            {t:"파이즈리", c:"SEX"}, 
+            {t:"펠라", c:"SEX"},
+            {t:"절정", c:"SEX"},
+            {t:"임신", c:"WEDDING"}, {t:"아이 안고 있음", c:"WEDDING"}, {t:"결혼", c:"WEDDING"}
+        ];
+
+        const characters = [
+            { 
+                name: "최서연", birth: "1994.03.15", age: "32세", body: "168cm / 55kg", role: "톱스타(추락)", startId: 1,
+                desc: "프라이드가 높으나 재기가 시급함. 고급스러운 이미지 필요.",
+                truth: { role: "퇴물 배우", desc: "빚 20억. 재기 못하면 화류계 가야 함. 겉으론 도도한 척하지만 시키면 다 함." }
+            },
+            { 
+                name: "김하늘", birth: "2004.08.22", age: "22세", body: "160cm / 45kg", role: "아이돌(망돌)", startId: 47,
+                desc: "성공을 위해 수단과 방법을 가리지 않음. 도발적.",
+                truth: { role: "스폰서 사냥꾼", desc: "멤버들 뒷담화 까고 다님. PD랑 잤다는 소문 파다함. 야망 덩어리." }
+            },
+            { 
+                name: "윤소라", birth: "2001.12.05", age: "25세", body: "165cm / 52kg", role: "신인 배우", startId: 93,
+                desc: "때묻지 않은 반항기. 솔직한 감정 표현.",
+                truth: { role: "통제 불능", desc: "반항적인 척하는데 침대에서는 맞는 거 좋아함. M 성향 있음." }
+            },
+            { 
+                name: "한예은", birth: "1999.06.28", age: "27세", body: "163cm / 60kg", role: "일반인(유부녀)", startId: 139,
+                desc: "배덕감과 순수함이 공존. 소심한 성격.",
+                truth: { role: "배덕감 중독", desc: "유부녀. 남편에게 죄책감 느끼지만 연예계 호기심 못 이김. 순진해서 이용하기 쉬움." }
+            }
+        ];
+
+        // --- 숨겨진 텍스트 데이터 (수위 및 캐릭터성 반영) ---
+        const hiddenThoughts = {
+            // 최서연 (자존심, 굴욕, 재기 욕망)
+            "1": "감독님... 제발 나 좀 봐줘요. 옛날처럼.",
+            "4": "이 정도 노출이면 기사 한 줄은 나겠지?",
+            "7": "아 쪽팔려... 스태프들이 비웃는 거 다 보여.",
+            "9": "다 죽여버릴 거야. 날 무시했던 것들 전부.",
+            "11": "참아 서연아. 여기서 화내면 진짜 끝이야.",
+            "16": "저딴 게 감독이라고... 역겨워.",
+            "32": "옷 입고 하는 게 더 꼴린다고 했었지.",
+            "35": "냄새 맡는 거야? 변태 새끼...",
+            "41": "대한민국 톱스타 가슴 사이에 싸는 기분이 어때?", // 파이즈리
+            "42": "목구멍까지 다 쑤셔 넣어... 배역만 주면 다 삼킬 테니까.", // 펠라
+            "43": "아... 찍어. 내가 어떻게 망가지는지 똑바로 찍어두라고.", // 절정
+
+            // 김하늘 (계산적, 야망, 가식)
+            "47": "아 지루해. 빨리 끝내고 클럽이나 가고 싶다.",
+            "48": "웃어 주니까 아주 좋아 죽네. 늙은이들.",
+            "50": "이러면 넘어오겠지? 쉬운 남자네.",
+            "60": "이 감독, 돈은 좀 있으려나? 차부터 확인해야지.",
+            "78": "키스 실력 별로네. 연습 좀 하지.",
+            "81": "겨드랑이 보는 눈빛이 딱 변태야. 맘에 들어.",
+            "84": "더 세게 박아봐요. 그게 다예요?",
+            "87": "영혼까지 모았어. 이 가슴에 싸고 싶어 미치겠지?", // 파이즈리
+            "88": "아, 턱 아파... 빨리 싸지. 싼 티 나게 질질 끄네.", // 펠라
+            "89": "하아... 연기 끝. 이제 배역 내 거야. 딴소리하기만 해봐.", // 절정
+
+            // 윤소라 (반항적, M성향, 솔직함)
+            "93": "뭘 봐요? 사람 처음 봐요?",
+            "99": "이상해... 왜 몸이 뜨거워지지?",
+            "103": "만지지 마요! ...아니, 사실 싫지 않아.",
+            "109": "너무 커... 저게 다 들어간다고?",
+            "111": "심장이 터질 것 같아. 들키면 안 되는데.",
+            "127": "묶어주세요. 움직이지 못하게.",
+            "129": "보고 있어요? 더 야하게 해줄까요?",
+            "130": "아파... 근데 멈추지 마요.",
+            "133": "작다고 무시하지 마요. 젖꼭지 닿는 거 느껴져요?", // 파이즈리
+            "134": "우윽, 컥... 숨 막혀... 더... 더 깊게 찔러줘요.", // 펠라
+            "135": "아, 으윽... 머릿속이 하얘져... 망가져버릴 것 같아.", // 절정
+
+            // 한예은 (유부녀, 배덕감, 순진)
+            "139": "여보 미안해... 오늘만 늦을게.",
+            "145": "저 사람들이 내 가슴만 쳐다봐... 부끄러워.",
+            "157": "이런 옷 입은 거 남편이 알면 기절할 텐데.",
+            "173": "제모 자국... 보이면 어떡하지?",
+            "174": "아, 거기... 남편보다 손길이 거칠어.",
+            "176": "안 돼, 안 돼... 으흣, 너무 좋아.",
+            "179": "여보... 나 다른 남자 거를 가슴으로 받고 있어...", // 파이즈리
+            "180": "입안이 꽉 차서... 혀를 움직일 수가 없어요. 맛이 비릿해...", // 펠라
+            "181": "가요! 가버려요! 아앙, 여보 미안해요...!", // 절정
+            "182": "혹시... 임신하면 어쩌죠? 감독님 아이...",
+        };
+
+        const sponsorMessages = [
+            { sender: "최 회장(스폰서)", text: "김감독, 이번에 김하늘이 좀 챙겨줘. 애가 싹싹하잖아." },
+            { sender: "박 투자자", text: "최서연이는 이제 끝물 아닌가? 적당히 굴리다 버리게." },
+            { sender: "소속사 김대표", text: "소라가 좀 뻣뻣하긴 해도, 가르치면 잘 할 거야. 알지?" },
+            { sender: "VIP", text: "오늘 밤에 예은 씨랑 식사 자리 마련해. 남편한텐 비밀로 하고." },
+            { sender: "최 회장(스폰서)", text: "프로젝트 예산, 이번 캐스팅 보고 결정하겠네." },
+            { sender: "강 기자", text: "감독님, 요즘 재밌는 소문이 돌던데요? 조심하세요 ㅋㅋ" }
+        ];
+
+        let currentIndex = 0;
+        let pressTimer;
+
+        function changeChar(index) {
+            currentIndex = index;
+            const char = characters[index];
+            
+            document.querySelectorAll('.nav-item').forEach((el, i) => {
+                el.classList.toggle('active', i === index);
+            });
+
+            closeGallery();
+            document.getElementById('header-date').innerText = `DATE: ${char.birth}`;
+            document.querySelector('.main-content').scrollTop = 0;
+
+            const profileUrl = `${IMAGE_FOLDER}${char.startId}${IMAGE_EXT}`;
+
+            let displayRole = char.role;
+            let displayDesc = char.desc;
+            if (state.truthUnlocked) {
+                displayRole = char.truth.role;
+                displayDesc = char.truth.desc;
+            }
+
+            const profileHtml = `
+                <div class="main-photo-box">
+                    <img src="${profileUrl}" onerror="this.style.display='none'">
+                </div>
+                <div class="info-grid">
+                    <div class="label">NAME</div><div class="value">${char.name}</div>
+                    <div class="label">AGE</div><div class="value">${char.age}</div>
+                    <div class="label">BODY</div><div class="value">${char.body}</div>
+                    <div class="label">TYPE</div><div class="value">${displayRole}</div>
+                    <div class="label">NOTE</div><div class="value">${displayDesc}</div>
+                </div>
+            `;
+            document.getElementById('profile-container').innerHTML = profileHtml;
+
+            let galleryHtml = "";
+            imageTags.forEach((tag, i) => {
+                const imgId = char.startId + i;
+                const imgSrc = `${IMAGE_FOLDER}${imgId}${IMAGE_EXT}`;
+                
+                // [강조] 비밀이 있으면 has-secret 클래스 추가
+                const hasSecretClass = hiddenThoughts[imgId] ? 'has-secret' : '';
+
+                galleryHtml += `
+                    <div class="photo-card ${hasSecretClass}">
+                        <div class="secret-badge">SECRET</div>
+                        <div class="img-wrapper" id="wrapper-${imgId}">
+                            <div class="cover-overlay" onclick="revealImage('${imgId}', '${imgSrc}')">
+                                <div class="lock-icon">🔒</div>
+                                <div class="cover-text">TOUCH</div>
+                                <div class="file-num">${imgId}</div>
+                            </div>
+                            <img id="img-${imgId}" 
+                                onmousedown="startPress('${imgId}')" onmouseup="endPress()" onmouseleave="endPress()"
+                                ontouchstart="startPress('${imgId}')" ontouchend="endPress()" 
+                                onclick="openModal('${imgSrc}', '${tag.t}')">
+                        </div>
+                        <div class="card-info">
+                            <span style="font-weight:bold;">#${imgId} ${tag.t}</span>
+                            <span class="tag-badge">${tag.c}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            document.getElementById('gallery-grid').innerHTML = galleryHtml;
+        }
+
+        function openGallery() {
+            document.getElementById('profile-view').style.display = 'none';
+            document.getElementById('gallery-view').style.display = 'block';
+            window.scrollTo(0,0);
+        }
+
+        function closeGallery() {
+            document.getElementById('profile-view').style.display = 'block';
+            document.getElementById('gallery-view').style.display = 'none';
+        }
+
+        function revealImage(id, src) {
+            const wrapper = document.getElementById(`wrapper-${id}`);
+            const cover = wrapper.querySelector('.cover-overlay');
+            const img = document.getElementById(`img-${id}`);
+            cover.style.display = 'none';
+            img.src = src;
+            img.style.display = 'block';
+            img.onerror = function() {
+                this.style.display = 'none';
+                cover.style.display = 'flex';
+                cover.querySelector('.cover-text').innerText = "ERROR";
+            }
+        }
+
+        // --- 이스터 에그 로직 ---
+        function triggerTruth() {
+            state.clickCount++;
+            if (state.clickCount >= 5 && !state.truthUnlocked) {
+                state.truthUnlocked = true;
+                document.body.classList.add('truth-mode');
+                alert("⚠ SYSTEM ALERT ⚠\n비공개 기록이 열람됩니다.");
+                document.getElementById('st-truth').classList.add('unlocked');
+                document.getElementById('st-truth').innerText = "UNLOCKED";
+                changeChar(currentIndex);
+            }
+        }
+
+        function startPress(id) {
+            pressTimer = setTimeout(function() {
+                if (hiddenThoughts[id]) {
+                    showToastMsg(hiddenThoughts[id]); 
+                    if (!state.foundTexts.includes(id)) {
+                        state.foundTexts.push(id);
+                        updateTextStatus();
+                    }
+                }
+            }, 800); // 0.8초 꾹 누르면 발동
+        }
+        function endPress() { clearTimeout(pressTimer); }
+
+        function showToastMsg(text) {
+            const box = document.createElement('div');
+            box.innerText = `"${text}"`;
+            box.style.position = 'fixed';
+            box.style.top = '50%';
+            box.style.left = '50%';
+            box.style.transform = 'translate(-50%, -50%)';
+            box.style.background = 'rgba(0,0,0,0.9)';
+            box.style.color = '#fff';
+            box.style.padding = '20px';
+            box.style.borderRadius = '10px';
+            box.style.zIndex = '3000';
+            box.style.border = '2px solid var(--accent-color)';
+            box.style.textAlign = 'center';
+            box.style.fontWeight = 'bold';
+            document.body.appendChild(box);
+            setTimeout(() => { box.remove(); }, 3000);
+        }
+
+        function updateTextStatus() {
+            const count = Object.keys(hiddenThoughts).length;
+            const current = state.foundTexts.length;
+            const el = document.getElementById('st-text');
+            el.innerText = `${current}/${count}`;
+            if (current === count) el.classList.add('unlocked');
+        }
+
+        function toggleEggPopup() {
+            const popup = document.getElementById('egg-popup');
+            popup.style.display = (popup.style.display === 'block') ? 'none' : 'block';
+        }
+
+        function showNotification(sender, text) {
+            const container = document.getElementById('notification-area');
+            const msg = document.createElement('div');
+            msg.className = 'msg-toast';
+            
+            const now = new Date();
+            const timeStr = `${now.getHours()}:${now.getMinutes() < 10 ? '0'+now.getMinutes() : now.getMinutes()}`;
+
+            msg.innerHTML = `
+                <div class="msg-sender">
+                    <span>${sender}</span>
+                    <span class="msg-time">${timeStr}</span>
+                </div>
+                <div class="msg-body">${text}</div>
+            `;
+            
+            container.appendChild(msg);
+            setTimeout(() => {
+                msg.style.opacity = '0';
+                setTimeout(() => msg.remove(), 500);
+            }, 5000);
+        }
+
+        function scheduleNextMessage() {
+            const delay = Math.random() * 10000 + 5000; 
+            setTimeout(() => {
+                const randomMsg = sponsorMessages[Math.floor(Math.random() * sponsorMessages.length)];
+                showNotification(randomMsg.sender, randomMsg.text);
+                scheduleNextMessage(); 
+            }, delay);
+        }
+
+        // 초기화: 텍스트 카운트 표시
+        document.getElementById('st-text').innerText = `0/${Object.keys(hiddenThoughts).length}`;
+        scheduleNextMessage();
+
+        const modal = document.getElementById('modal');
+        const modalImg = document.getElementById('modal-img');
+        const modalCaption = document.getElementById('modal-caption');
+
+        function openModal(src, text) {
+            modal.style.display = "flex";
+            modalImg.src = src;
+            modalCaption.innerText = text;
+        }
+        function closeModal() { modal.style.display = "none"; }
+        window.onkeydown = function(e) { if (e.key === "Escape") closeModal(); }
+        modal.onclick = function(e) { if(e.target === modal) closeModal(); }
+
+        changeChar(0);
+    </script>
+</body>
+</html>
